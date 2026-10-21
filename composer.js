@@ -33,10 +33,10 @@ async function initDiscoveryMap(){
     discoveryMap=new kakao.maps.Map(container,{center:new kakao.maps.LatLng(discoveryChoice?.lat??37.545,discoveryChoice?.lon??127.04),level:5});
     const initialRequest=placeRequest;
     attachCurrentLocation(discoveryMap,container,{autoCenter:!discoveryChoice,canCenter:()=>placeRequest===initialRequest&&!discoveryChoice});
-    if(discoveryChoice)new kakao.maps.Marker({map:discoveryMap,position:new kakao.maps.LatLng(discoveryChoice.lat,discoveryChoice.lon),title:discoveryChoice.name});
+    if(discoveryChoice)showSelectedDiscoveryPlace(discoveryChoice);
   }catch{if(container.isConnected)container.innerHTML='<p class="hint">지도를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.</p>';}
 }
-function showPlaceDiscovery(){document.querySelector('#place-discovery').hidden=false;document.querySelector('#record-editor').hidden=true;document.querySelector('.dialog h2').textContent='어디서 맛있게 먹었나요?';initDiscoveryMap();document.querySelector('.dialog').scrollTop=0;}
+function showPlaceDiscovery(){document.querySelector('#place-discovery').hidden=false;document.querySelector('#record-editor').hidden=true;document.querySelector('.dialog h2').textContent='어디서 먹었나요?';initDiscoveryMap();document.querySelector('.dialog').scrollTop=0;}
 function beginPlaceRecord(){if(!discoveryChoice)return;document.querySelector('#place-discovery').hidden=true;document.querySelector('#record-editor').hidden=false;document.querySelector('.dialog h2').textContent='맛있는 기록 남기기';updatePostPreview();document.querySelector('.dialog').scrollTop=0;}
 function showSearchMarkers(kakao){
   if(!discoveryMap||!document.querySelector('#discovery-map')?.isConnected)return;
@@ -45,6 +45,14 @@ function showSearchMarkers(kakao){
   const bounds=new kakao.maps.LatLngBounds();
   placeResults.forEach((p,i)=>{const position=new kakao.maps.LatLng(Number(p.y),Number(p.x));bounds.extend(position);const marker=new kakao.maps.Marker({map:discoveryMap,position,title:p.place_name});kakao.maps.event.addListener(marker,'click',()=>choosePlace(i));discoveryMarkers.push(marker);});
   discoveryMap.setBounds(bounds);
+}
+function showSelectedDiscoveryPlace(place){
+  if(!discoveryMap||!window.kakao?.maps)return;
+  discoveryMarkers.forEach(marker=>marker.setMap(null));
+  const position=new window.kakao.maps.LatLng(place.lat,place.lon);
+  discoveryMarkers=[new window.kakao.maps.Marker({map:discoveryMap,position,title:place.name})];
+  discoveryMap.setLevel(4);
+  discoveryMap.panTo(position);
 }
 function selectedPlaceMarkup(p) {
   return `<input type="hidden" name="name" value="${esc(p?.name||'')}"><input type="hidden" name="area" value="${esc(p?.area||'')}"><input type="hidden" name="category" value="${esc(p?.category||'')}"><input type="hidden" name="lat" value="${p?.lat??''}"><input type="hidden" name="lon" value="${p?.lon??''}"><input type="hidden" name="placeId" value="${esc(p?.placeId||'')}"><input type="hidden" name="placeUrl" value="${esc(p?.placeUrl||'')}">${p?`<div class="selected-place"><span>📍</span><div><strong>${esc(p.name)}</strong><small>${esc(p.area)}</small><small>${esc(p.category)}</small></div><span class="place-check">✓</span></div>`:'<p class="hint place-instruction">식당이나 카페를 검색하고 아래 목록에서 선택해 주세요.</p>'}`;
@@ -85,7 +93,7 @@ function choosePlace(index) {
   discoveryChoice={name:p.place_name,area:p.road_address_name||p.address_name,category:p.category_name.split(' > ').slice(-1)[0]||p.category_group_name,lat:Number(p.y),lon:Number(p.x),placeId:p.id,placeUrl:p.place_url};
   target.innerHTML=selectedPlaceMarkup(discoveryChoice);
   const selection=document.querySelector('#discovery-selection');if(selection)selection.innerHTML=discoverySelectionMarkup(discoveryChoice);
-  if(discoveryMap&&window.kakao?.maps)discoveryMap.panTo(new window.kakao.maps.LatLng(discoveryChoice.lat,discoveryChoice.lon));
+  showSelectedDiscoveryPlace(discoveryChoice);
   ++placeRequest;
   document.querySelector('#place-results').innerHTML='';
   document.querySelector('#place-search').value='';
