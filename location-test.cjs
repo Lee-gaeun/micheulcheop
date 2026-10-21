@@ -1,0 +1,20 @@
+const vm=require('node:vm');
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const source=fs.readFileSync('kakao-map.js','utf8');
+const make=navigator=>vm.createContext({navigator,setTimeout,clearTimeout,Date,window:{}});
+(async()=>{
+  let calls=0,options;
+  const allowed=make({geolocation:{getCurrentPosition(success,error,opts){calls++;options=opts;success({coords:{latitude:35.1,longitude:129.1}});}}});
+  vm.runInContext(source,allowed);
+  const [first,second]=await Promise.all([vm.runInContext('getCurrentLocation()',allowed),vm.runInContext('getCurrentLocation()',allowed)]);
+  assert.equal(first.lat,35.1);assert.equal(second.lon,129.1);assert.equal(calls,1);
+  await vm.runInContext('getCurrentLocation()',allowed);assert.equal(calls,1);
+  assert.equal(options.timeout,10000);assert.equal(options.maximumAge,60000);
+  const denied=make({geolocation:{getCurrentPosition(success,error){error({code:1});}}});vm.runInContext(source,denied);
+  await assert.rejects(vm.runInContext('getCurrentLocation()',denied),error=>error.code===1);
+  assert.equal(vm.runInContext('currentLocation',denied),undefined);
+  const missing=make({});vm.runInContext(source,missing);
+  await assert.rejects(vm.runInContext('getCurrentLocation()',missing),/unsupported/);
+  console.log('PASS: location success, shared request, temporary cache, permission denial and unsupported browser');
+})().catch(error=>{console.error(error);process.exitCode=1;});

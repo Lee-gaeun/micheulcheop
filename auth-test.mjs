@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {createKakaoAuth} from './auth.mjs';
+const origin='http://localhost:5174';
+const response=()=>({status:0,headers:{},setHeader(k,v){this.headers[k]=v},writeHead(s,h){this.status=s;Object.assign(this.headers,h)},end(v){this.body=v}});
+const request=(path,headers={},method='GET')=>({method,headers,url:path});
+const invoke=async(auth,path,headers={},method='GET')=>{const res=response();await auth(request(path,headers,method),res,new URL(path,origin));return res};
+const unconfigured=createKakaoAuth({origin});
+assert.equal(JSON.parse((await invoke(unconfigured,'/api/auth/status')).body).configured,false);
+assert.equal((await invoke(unconfigured,'/auth/kakao')).headers.Location,'/?auth_error=setup');
+let tokenCalls=0;
+const auth=createKakaoAuth({origin,restKey:'test-public-key',clientSecret:'server-only-secret',fetcher:async url=>{
+  if(url.includes('/oauth/token')){tokenCalls++;return{ok:true,json:async()=>({access_token:'server-only-token',expires_in:3600})};}
+  return{ok:true,json:async()=>({id:123,kakao_account:{profile:{nickname:'테스트 사용자',profile_image_url:'https://example.com/avatar.jpg'}}})};
+}});
+const login=await invoke(auth,'/auth/kakao');
+const target=new URL(login.headers.Location),state=target.searchParams.get('state');
+assert.equal(target.origin,'https://kauth.kakao.com');assert.equal(target.searchParams.get('redirect_uri'),origin+'/auth/kakao/callback');
+const stateCookie=login.headers['Set-Cookie'].split(';')[0];
+const forged=await invoke(auth,'/auth/kakao/callback?code=x&state='+state);
+assert.equal(forged.headers.Location,'/?auth_error=state');assert.equal(tokenCalls,0);
+const callback=await invoke(auth,'/auth/kakao/callback?code=x&state='+state,{cookie:stateCookie});
+assert.equal(callback.headers.Location,'/?auth=success');assert.equal(tokenCalls,1);
+const sessionCookie=callback.headers['Set-Cookie'][1];assert.match(sessionCookie,/HttpOnly; SameSite=Lax/);assert.doesNotMatch(sessionCookie,/server-only-token/);
+const cookie=sessionCookie.split(';')[0];
+const status=await invoke(auth,'/api/auth/status',{cookie});assert.equal(JSON.parse(status.body).user.nickname,'테스트 사용자');assert.doesNotMatch(status.body,/server-only/);
+assert.equal((await invoke(auth,'/auth/kakao/callback?code=x&state='+state,{cookie:stateCookie})).headers.Location,'/?auth_error=state');
+assert.equal((await invoke(auth,'/api/auth/logout',{cookie,origin:'https://other.example'},'POST')).status,403);
+assert.equal((await invoke(auth,'/api/auth/logout',{cookie,origin},'POST')).status,200);
+assert.equal(JSON.parse((await invoke(auth,'/api/auth/status',{cookie})).body).user,null);
+console.log('PASS: OAuth configuration, state validation, one-time callback, server-only tokens, session and logout origin');
