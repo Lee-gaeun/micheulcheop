@@ -22,9 +22,11 @@ const callback=await invoke(auth,'/auth/kakao/callback?code=x&state='+state,{coo
 assert.equal(callback.headers.Location,'/?auth=success');assert.equal(tokenCalls,1);
 const sessionCookie=callback.headers['Set-Cookie'][1];assert.match(sessionCookie,/HttpOnly; SameSite=Lax/);assert.doesNotMatch(sessionCookie,/server-only-token/);
 const cookie=sessionCookie.split(';')[0];
+assert.equal(auth.getUser({headers:{cookie}}).id,'123');
 const status=await invoke(auth,'/api/auth/status',{cookie});assert.equal(JSON.parse(status.body).user.nickname,'테스트 사용자');assert.doesNotMatch(status.body,/server-only/);
 assert.equal((await invoke(auth,'/auth/kakao/callback?code=x&state='+state,{cookie:stateCookie})).headers.Location,'/?auth_error=state');
 assert.equal((await invoke(auth,'/api/auth/logout',{cookie,origin:'https://other.example'},'POST')).status,403);
 assert.equal((await invoke(auth,'/api/auth/logout',{cookie,origin},'POST')).status,200);
 assert.equal(JSON.parse((await invoke(auth,'/api/auth/status',{cookie})).body).user,null);
+assert.equal(auth.getUser({headers:{cookie}}),null);
 console.log('PASS: OAuth configuration, state validation, one-time callback, server-only tokens, session and logout origin');

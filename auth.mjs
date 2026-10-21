@@ -8,7 +8,7 @@ export function createKakaoAuth({origin,restKey,clientSecret,fetcher=fetch,now=D
   const configured=Boolean(restKey&&clientSecret);
   const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
   const redirect=(res,url,headers={})=>{res.writeHead(302,{Location:url,'Cache-Control':'no-store','Referrer-Policy':'no-referrer',...headers});res.end();};
-  return async function auth(req,res,url){
+  const handler=async function auth(req,res,url){
     const route=url.pathname;
     if(!['/api/auth/status','/api/auth/logout','/auth/kakao','/auth/kakao/callback'].includes(route))return false;
     for(const [key,value] of pending)if(value.expires<=now())pending.delete(key);
@@ -51,4 +51,6 @@ export function createKakaoAuth({origin,restKey,clientSecret,fetcher=fetch,now=D
     }catch{redirect(res,'/?auth_error=failed',{'Set-Cookie':clearState});}
     return true;
   };
+  handler.getUser=req=>{const session=sessions.get(cookies(req).mc_session);return session&&session.expires>now()?session.user:null;};
+  return handler;
 }

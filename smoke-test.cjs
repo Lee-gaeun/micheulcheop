@@ -8,6 +8,7 @@ const storage = new Map();
 const context = vm.createContext({console,window:{MICHEULCHEOP_CONFIG:{kakaoJavaScriptKey:''}},mountKakaoMap(){},structuredClone,crypto:require('node:crypto').webcrypto,setTimeout,clearTimeout,Date,URL,Blob,FormData:class{constructor(form){this.values=form.values}get(key){return this.values[key]??''}},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},document:{querySelector:element,addEventListener:(name,fn)=>events[name]=fn,body:{style:{}},activeElement:null}});
 vm.runInContext(fs.readFileSync('composer.js','utf8'),context);
 vm.runInContext(fs.readFileSync('profile.js','utf8'),context);
+vm.runInContext(fs.readFileSync('collaboration.js','utf8'),context);
 vm.runInContext(fs.readFileSync('app.js','utf8'),context);
 const run = code=>vm.runInContext(code,context);
 function submit(id,values,dataset={}){events.submit({preventDefault(){},target:{id,values,dataset}})}
@@ -64,3 +65,14 @@ assert.match(element('#app').innerHTML,/alt="내 프로필 사진"/);
 run("profilePhotoDraft=''");submit('profile-form',{name:'사진 사용자'});
 assert.equal(JSON.parse(storage.get('micheulcheop-v1')).profilePhoto,'');
 console.log('PASS: profile photo save, avatar display and reset');
+run(`
+  authInfo.user={id:'my-id'};
+  mergeCollaborativeState({books:[{id:'online',name:'공유 수첩',emoji:'🍴',color:'#aabbcc',remote:true,shared:true,role:'member',members:[]}],posts:[{id:'online-post',book:'online',remote:true,authorId:'other-id',author:data.profile,comments:[],favorite:false}]});
+`);
+assert.equal(run("ownsRecord(data.posts.find(p=>p.id==='online-post'))"),false);
+assert.equal(run("ownsComment({authorId:'my-id'},data.posts.find(p=>p.id==='online-post'))"),true);
+run('save()');
+assert.ok(!JSON.parse(storage.get('micheulcheop-v1')).books.some(b=>b.remote));
+assert.ok(!JSON.parse(storage.get('micheulcheop-v1')).posts.some(p=>p.remote));
+assert.equal(run("data.books.some(b=>b.id==='online')"),true);
+console.log('PASS: shared data is separate from local cache and ownership uses account IDs');
