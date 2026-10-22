@@ -33,7 +33,7 @@ async function initDiscoveryMap(){
   }catch{if(container.isConnected)container.innerHTML='<p class="hint">지도를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.</p>';}
 }
 function showPlaceDiscovery(){document.querySelector('#place-discovery').hidden=false;document.querySelector('#record-editor').hidden=true;document.querySelector('.dialog h2').textContent='어디서 먹었나요?';initDiscoveryMap();document.querySelector('.dialog').scrollTop=0;}
-function beginPlaceRecord(){if(!discoveryChoice)return;document.querySelector('#place-discovery').hidden=true;document.querySelector('#record-editor').hidden=false;document.querySelector('.dialog h2').textContent='맛있는 기록 남기기';updatePostPreview();document.querySelector('.dialog').scrollTop=0;}
+function beginPlaceRecord(){if(!discoveryChoice)return;document.querySelector('#place-discovery').hidden=true;document.querySelector('#record-editor').hidden=false;document.querySelector('.dialog h2').textContent='미슐첩에 기록하기';updatePostPreview();document.querySelector('.dialog').scrollTop=0;}
 function showSearchMarkers(kakao){
   if(!discoveryMap||!document.querySelector('#discovery-map')?.isConnected)return;
   discoveryMarkers.forEach(m=>m.setMap(null));discoveryMarkers=[];
@@ -100,7 +100,7 @@ function choosePlace(index) {
 async function pickGalleryPhoto(input){
   const files=Array.from(input.files||[]);if(!files.length)return;if(photoDraft.length+files.length>10){toast('사진은 최대 10장까지 추가할 수 있어요.');input.value='';return;}
   const request=++photoRequest;photoBusy=true;const status=document.querySelector('#photo-status');if(status)status.textContent='사진을 불러오는 중이에요…';
-  try{const additions=[];for(const file of files){if(!file.type.startsWith('image/'))throw Error('image');const bitmap=await createImageBitmap(file),canvas=document.createElement('canvas'),scale=Math.min(1,1200/Math.max(bitmap.width,bitmap.height));canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const url=canvas.toDataURL('image/jpeg',.78);if(url.length>2800000)throw Error('size');const item={url:squarePhoto(canvas),text:''};photoOriginals.set(item,url);additions.push(item);}if(request!==photoRequest||!input.isConnected)return;const active=photoDraft.length;photoDraft.push(...additions);renderPhotoDraft(active);updatePostPreview();if(status)status.textContent='사진 아래에 각각의 이야기를 남겨보세요.';
+  try{const additions=[];for(const file of files){if(!file.type.startsWith('image/'))throw Error('image');const bitmap=await createImageBitmap(file),canvas=document.createElement('canvas'),scale=Math.min(1,1200/Math.max(bitmap.width,bitmap.height));canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const url=canvas.toDataURL('image/jpeg',.78);if(url.length>2800000)throw Error('size');const item={url:squarePhoto(canvas),text:''};photoOriginals.set(item,url);additions.push(item);}if(request!==photoRequest||!input.isConnected)return;const active=photoDraft.length;photoDraft.push(...additions);renderPhotoDraft(active);updatePostPreview();if(status)status.textContent='사진마다 그날의 이야기를 들려주세요.';
   }catch{if(request===photoRequest){toast('사진을 불러오지 못했어요. JPG 또는 PNG로 다시 선택해 주세요.');if(status)status.textContent='사진을 다시 선택해 주세요.';}}
   finally{if(request===photoRequest){photoBusy=false;input.value='';}}
 }

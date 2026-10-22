@@ -31,7 +31,7 @@ assert.doesNotMatch(element('#results').innerHTML,/openstreetmap/);
 assert.doesNotMatch(element('#app').innerHTML,/YOUR TASTE|오늘의 맛을|내 입맛이 기준/);
 run("selected='mine';tab='feed';renderResults()");
 assert.equal(run('posts().length'),0);
-assert.match(element('#results').innerHTML,/첫 기록/);
+assert.match(element('#results').innerHTML,/첫 미슐첩/);
 const saved=JSON.parse(storage.get('micheulcheop-v1'));
 assert.equal(saved.books.length,4);
 assert.equal(saved.posts.find(p=>p.id===postId).rating,4.5);
@@ -89,3 +89,7 @@ assert.equal(JSON.parse(storage.get('micheulcheop-v1')).posts.find(p=>p.id===gal
 run("localStorage.setItem(defaultNotebookKey(),'online');restoreDefaultNotebook()");assert.equal(run('selected'),'online');
 run("data.books=[];data.posts=[];ensureNotebook();save()");assert.equal(run('data.books.length'),1);assert.equal(run('selected'),run('data.books[0].id'));
 console.log('PASS: gallery and reply local persistence, shared default selection and last-notebook fallback');
+
+for(let count=2;count<=10;count++)for(let active=0;active<count;active++){context.dotCount=count;context.dotActive=active;const indices=JSON.parse(run('JSON.stringify(galleryDotIndices(dotCount,dotActive))'));assert.equal(indices.length,Math.min(5,count));assert.ok(indices.includes(active));assert.ok(indices.every(i=>i>=0&&i<count));}
+assert.match(run('galleryNavigation(8)'),/사진 8장/);assert.doesNotMatch(run('galleryNavigation(8)'),/1 \/ 8/);
+console.log('PASS: up to five position dots, active photo visibility and explicit total count');
