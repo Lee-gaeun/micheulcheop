@@ -12,10 +12,12 @@ function schedulePlaceSearch(input){
 let discoveryMap, discoveryMarkers=[], discoveryChoice=null;
 function starRatingMarkup(value){return '<div class="star-picker"><div class="five-stars" aria-hidden="true">'+Array.from({length:5},(_,i)=>'<span class="rating-star"><span class="star-empty">★</span><span class="star-filled" style="width:'+Math.max(0,Math.min(1,value-i))*100+'%">★</span></span>').join('')+'</div><output id="star-value">'+value.toFixed(1)+'<small> / 5</small></output></div><input class="rating-slider" type="range" name="rating" min="0" max="5" step="0.1" value="'+value+'" aria-label="별점, 0.1점 단위"><p class="star-help">슬라이더로 0.1점씩 조절해요.</p>';}
 function updateStarRating(){const value=Number(document.querySelector('input[name="rating"]')?.value??4.5);document.querySelectorAll('.star-filled').forEach((el,i)=>el.style.width=Math.max(0,Math.min(1,value-i))*100+'%');const output=document.querySelector('#star-value');if(output)output.innerHTML=value.toFixed(1)+'<small> / 5</small>';}
-function updatePostPreview(){
+function updatePostPreview(activePhoto){
   const form=document.querySelector('#post-form'),target=document.querySelector('#post-live-preview');if(!form||!target)return;
   const values=new FormData(form),text=String(values.get('text')||'');
-  target.innerHTML=card({id:'preview',name:values.get('name')||'선택한 식당',area:values.get('area')||'',category:values.get('category')||'맛집',rating:Number(values.get('rating')||4.5),text:text||'여기에 나의 맛있는 이야기가 담겨요.',date:values.get('date')||today(),photo:photoDraft[0]?.url||'',photos:photoDraft,author:data.profile,comments:[]});
+  const oldTrack=target.querySelector('.photo-carousel'),active=activePhoto??(oldTrack?Math.round(oldTrack.scrollLeft/Math.max(1,oldTrack.clientWidth)):0);
+  target.innerHTML=card({id:'preview',name:values.get('name')||'선택한 식당',area:values.get('area')||'',category:values.get('category')||'맛집',rating:Number(values.get('rating')??4.5),text,date:values.get('date')||today(),photo:photoDraft[0]?.url||'',photos:photoDraft,author:data.profile,comments:[]})+galleryNavigation(photoDraft.length);
+  const track=target.querySelector('.photo-carousel');if(track){track.scrollLeft=active*track.clientWidth;updateGalleryPosition(track);}
   const count=document.querySelector('#story-count');if(count)count.textContent=`${text.length.toLocaleString()} / 5,000`;
 }
 function discoverySelectionMarkup(p){return `<div class="discovery-place"><strong>📍 ${esc(p.name)}</strong><small>${esc(p.area)}</small><button type="button" class="primary" data-action="write-place">여기에 기록하기 ${icon('edit')}</button></div>`;}
@@ -98,7 +100,7 @@ function choosePlace(index) {
 async function pickGalleryPhoto(input){
   const files=Array.from(input.files||[]);if(!files.length)return;if(photoDraft.length+files.length>10){toast('사진은 최대 10장까지 추가할 수 있어요.');input.value='';return;}
   const request=++photoRequest;photoBusy=true;const status=document.querySelector('#photo-status');if(status)status.textContent='사진을 불러오는 중이에요…';
-  try{const additions=[];for(const file of files){if(!file.type.startsWith('image/'))throw Error('image');const bitmap=await createImageBitmap(file),canvas=document.createElement('canvas'),scale=Math.min(1,1200/Math.max(bitmap.width,bitmap.height));canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const url=canvas.toDataURL('image/jpeg',.78);if(url.length>2800000)throw Error('size');additions.push({url,text:''});}if(request!==photoRequest||!input.isConnected)return;photoDraft.push(...additions);renderPhotoDraft();updatePostPreview();if(status)status.textContent='사진 아래에 각각의 이야기를 남겨보세요.';
+  try{const additions=[];for(const file of files){if(!file.type.startsWith('image/'))throw Error('image');const bitmap=await createImageBitmap(file),canvas=document.createElement('canvas'),scale=Math.min(1,1200/Math.max(bitmap.width,bitmap.height));canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const url=canvas.toDataURL('image/jpeg',.78);if(url.length>2800000)throw Error('size');additions.push({url,text:''});}if(request!==photoRequest||!input.isConnected)return;const active=photoDraft.length;photoDraft.push(...additions);renderPhotoDraft(active);updatePostPreview();if(status)status.textContent='사진 아래에 각각의 이야기를 남겨보세요.';
   }catch{if(request===photoRequest){toast('사진을 불러오지 못했어요. JPG 또는 PNG로 다시 선택해 주세요.');if(status)status.textContent='사진을 다시 선택해 주세요.';}}
   finally{if(request===photoRequest){photoBusy=false;input.value='';}}
 }
