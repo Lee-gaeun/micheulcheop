@@ -100,7 +100,7 @@ captionTrack.scrollLeft=300;run('updateGalleryPosition(captionTrack)');assert.eq
 captionTrack.scrollLeft=600;run('updateGalleryPosition(captionTrack)');assert.equal(captionTarget.textContent,'');assert.equal(captionTarget.hidden,true);
 console.log('PASS: photo captions switch below the gallery and empty captions hide without stale text');
 const independentTrack={scrollLeft:200,clientWidth:200,children:[{querySelector:()=>null},{querySelector:()=>null}],closest:selector=>selector==='#post-live-preview'?{}:null};
-element('#post-live-preview').querySelector=()=>independentTrack;
+element('#post-live-preview').querySelector=selector=>selector==='.photo-carousel'?independentTrack:null;
 element('#post-form').values={text:'',date:'2026-10-22',name:'미리보기',rating:'4.7'};
 run("photoDraft=[{url:'https://example.com/one.jpg',text:'첫 사진'},{url:'https://example.com/two.jpg',text:'둘째 사진'}];previewPhoto=photoDraft[1];photoDraft[0].text='위에서 수정한 첫 사진';updatePostPreview(0)");
 assert.equal(independentTrack.scrollLeft,200);assert.equal(run('previewPhoto===photoDraft[1]'),true);

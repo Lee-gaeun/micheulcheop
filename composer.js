@@ -18,6 +18,7 @@ function updatePostPreview(){
   const oldTrack=target.querySelector('.photo-carousel'),active=Math.max(0,Math.min(photoDraft.length-1,previewPhoto&&photoDraft.includes(previewPhoto)?photoDraft.indexOf(previewPhoto):(oldTrack?Math.round(oldTrack.scrollLeft/Math.max(1,oldTrack.clientWidth)):0)));
   target.innerHTML=card({id:'preview',name:values.get('name')||'선택한 식당',area:values.get('area')||'',category:values.get('category')||'맛집',rating:Number(values.get('rating')??4.5),text,date:values.get('date')||today(),photo:photoDraft[0]?.url||'',photos:photoDraft,author:data.profile,comments:[]})+galleryNavigation(photoDraft.length);
   const track=target.querySelector('.photo-carousel');if(track){track.scrollLeft=active*track.clientWidth;updateGalleryPosition(track);}
+  stabilizePreviewCaption(target);
 }
 function discoverySelectionMarkup(p){return `<div class="discovery-place"><strong>📍 ${esc(p.name)}</strong><small>${esc(p.area)}</small><button type="button" class="primary" data-action="write-place">여기에 기록하기 ${icon('edit')}</button></div>`;}
 async function initDiscoveryMap(){
