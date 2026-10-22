@@ -20,3 +20,16 @@ for(const filter of ['warm','cool','vivid','soft','mono']){
   if(filter==='cool')assert.ok(pixels.data[0]<160&&pixels.data[2]>70);
 }
 console.log('PASS: square crop, zoom, horizontal/vertical positioning and five filters with opaque output');
+const exported=[];const textCtx={fillRect(){},drawImage(){},save(){},restore(){},strokeText(){},fillText(...args){exported.push(args)}};
+context.textCanvas={getContext:()=>textCtx};
+run('activePhotoEditor={image:{width:400,height:400},zoom:1,x:0,y:0,filter:"original",overlays:[{text:"사진 속 글자",x:.3,y:.7,size:.06,color:"#ffffff"}]};drawPhotoAdjustment(textCanvas,1000)');
+assert.equal(exported[0][0],'사진 속 글자');assert.equal(exported[0][1],300);assert.equal(exported[0][2],700);
+const handlers={};context.gestureStage={addEventListener:(type,fn)=>handlers[type]=fn,getBoundingClientRect:()=>({width:300,height:300,left:0,top:0}),setPointerCapture(){}};
+run('refreshPhotoAdjustment=()=>{};syncPhotoTextControls=()=>{};activePhotoEditor={image:{width:400,height:400},zoom:1,x:0,y:0,overlays:[],selected:null};bindPhotoGestures(gestureStage)');
+const pointer=(id,x,y,target=null)=>({pointerId:id,clientX:x,clientY:y,preventDefault(){},target:{closest:()=>target}});
+handlers.pointerdown(pointer(1,100,100));handlers.pointerdown(pointer(2,200,100));handlers.pointermove(pointer(2,300,100));assert.equal(run('activePhotoEditor.zoom'),2);
+handlers.pointerup(pointer(2,300,100));handlers.pointermove(pointer(1,130,120));assert.ok(run('activePhotoEditor.x')>0);handlers.pointerup(pointer(1,130,120));
+run('activePhotoEditor.overlays=[{id:"text",x:.5,y:.5}];');
+handlers.pointerdown(pointer(3,150,150,{dataset:{photoTextId:'text'}}));handlers.pointermove(pointer(3,210,180));assert.equal(run('activePhotoEditor.overlays[0].x'),.7);assert.equal(run('activePhotoEditor.overlays[0].y'),.6);
+handlers.pointercancel(pointer(3,210,180));
+console.log('PASS: pinch zoom, touch panning, dragged text placement and text included in exported image');
