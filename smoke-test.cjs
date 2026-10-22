@@ -93,3 +93,9 @@ console.log('PASS: gallery and reply local persistence, shared default selection
 for(let count=2;count<=10;count++)for(let active=0;active<count;active++){context.dotCount=count;context.dotActive=active;const indices=JSON.parse(run('JSON.stringify(galleryDotIndices(dotCount,dotActive))'));assert.equal(indices.length,Math.min(5,count));assert.ok(indices.includes(active));assert.ok(indices.every(i=>i>=0&&i<count));}
 assert.match(run('galleryNavigation(8)'),/사진 8장/);assert.doesNotMatch(run('galleryNavigation(8)'),/1 \/ 8/);
 console.log('PASS: up to five position dots, active photo visibility and explicit total count');
+const captionTarget={textContent:'',hidden:false};
+const captionTrack={scrollLeft:0,clientWidth:300,children:[{querySelector:()=>({textContent:'첫 사진의 이야기'})},{querySelector:()=>({textContent:'둘째 사진의 이야기'})},{querySelector:()=>null}],closest:selector=>selector==='.swipe-gallery'?null:{querySelector:()=>captionTarget}};
+context.captionTrack=captionTrack;run('updateGalleryPosition(captionTrack)');assert.equal(captionTarget.textContent,'첫 사진의 이야기');
+captionTrack.scrollLeft=300;run('updateGalleryPosition(captionTrack)');assert.equal(captionTarget.textContent,'둘째 사진의 이야기');assert.equal(captionTarget.hidden,false);
+captionTrack.scrollLeft=600;run('updateGalleryPosition(captionTrack)');assert.equal(captionTarget.textContent,'');assert.equal(captionTarget.hidden,true);
+console.log('PASS: photo captions switch below the gallery and empty captions hide without stale text');
