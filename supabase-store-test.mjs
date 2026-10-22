@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {SupabaseCollaborationStore} from './supabase-store.mjs';
+import {createCollaborationApi} from './collaboration-store.mjs';
 function cloudFixture(){
   const fixture={row:null,objects:new Map(),calls:[],conflict:false,publicBucket:false,fail:false};
   fixture.fetcher=async(input,options={})=>{
@@ -35,6 +36,15 @@ assert.equal(store.restorePhoto('https://other.example/photo.jpg',fixture.row.pa
 fixture.conflict=true;await store.update(db=>{db.favorites.user=['post'];});
 assert.equal(fixture.row.payload.users.concurrent.name,'다른 요청');assert.deepEqual(fixture.row.payload.favorites.user,['post']);
 const restarted=await new SupabaseCollaborationStore(options).load();assert.equal((await restarted.read()).books[0].name,'친구와');
+await store.update(db=>{Object.assign(db.books[0],{owner:'user',version:1});Object.assign(db.posts[0],{name:'사진 기록',area:'서울',category:'한식',rating:4.7,date:'2026-10-22',authorId:'user',comments:[],version:1,photos:[{url:'data:image/jpeg;base64,aGVsbG8=',text:'첫 번째'},{url:'data:image/jpeg;base64,d29ybGQ=',text:'두 번째'}]});});
+const gallery=(await store.read()).posts[0];assert.equal(gallery.photos.length,2);assert.ok(gallery.photos.every(p=>p.url.startsWith('sb:')));
+const galleryView=(await store.presentSnapshot({books:[],posts:[{...gallery,authorPhoto:''}]})).posts[0];
+const cloudApi=createCollaborationApi({store,getUser:async()=>({id:'user'}),origin:'https://app.example',presentSnapshot:v=>store.presentSnapshot(v),restorePhoto:(v,p)=>store.restorePhoto(v,p)});
+const editRequest={method:'PATCH',headers:{origin:'https://app.example'},async *[Symbol.asyncIterator](){yield JSON.stringify({...galleryView,photos:[galleryView.photos[1],galleryView.photos[0]]});}};
+const editResponse={writeHead(status){this.status=status},end(body){this.body=JSON.parse(body)}};
+await cloudApi(editRequest,editResponse,new URL('https://app.example/api/collab/posts/post'));
+assert.equal(editResponse.status,200);const edited=(await store.read()).posts[0];assert.equal(edited.photos[0].text,'두 번째');assert.ok(edited.photos.every(p=>p.url.startsWith('sb:')));assert.equal(edited.photo,edited.photos[0].url);
+console.log('PASS: private gallery upload, captions, signed URLs and preserved references after reorder');
 await assert.rejects(store.importInitialState({books:[],posts:[],users:{},invites:[],favorites:{}}),/destination is not empty/);
 const revision=fixture.row.revision;fixture.fail=true;await assert.rejects(store.update(db=>{db.books=[];}),/Supabase request failed/);fixture.fail=false;assert.equal(fixture.row.revision,revision);assert.equal(fixture.row.payload.books.length,1);
 fixture.publicBucket=true;await assert.rejects(new SupabaseCollaborationStore(options).load(),/must be private/);

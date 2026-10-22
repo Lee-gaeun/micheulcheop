@@ -76,13 +76,13 @@ async function saveCollaborativeForm(form){
     const old=data.posts.find(p=>p.id===id),book=values.get('book');
     if(old?.remote&&old.book!==book)throw Error('공유 기록은 원래 수첩에서 수정해 주세요.');
     if(!values.get('name'))throw Error('지도에서 다녀온 장소를 선택해 주세요.');
-    const payload={name:values.get('name'),area:values.get('area'),category:values.get('category'),placeId:values.get('placeId'),placeUrl:values.get('placeUrl'),rating:Number(values.get('rating')),text:values.get('text'),date:values.get('date'),lat:values.get('lat')===''?null:Number(values.get('lat')),lon:values.get('lon')===''?null:Number(values.get('lon')),photo:document.querySelector('#photo-preview').getAttribute('src')||'',version:Number(form.dataset.version)};
+    const payload={name:values.get('name'),area:values.get('area'),category:values.get('category'),placeId:values.get('placeId'),placeUrl:values.get('placeUrl'),rating:Number(values.get('rating')),text:values.get('text'),date:values.get('date'),lat:values.get('lat')===''?null:Number(values.get('lat')),lon:values.get('lon')===''?null:Number(values.get('lon')),photo:photoDraft[0]?.url||'',photos:structuredClone(photoDraft),version:Number(form.dataset.version)};
     await collaborationRequest(old?.remote?'/posts/'+old.id:'/books/'+book+'/posts',old?.remote?'PATCH':'POST',payload);
     selected=book;tab='feed';favoritesView=false;query='';close();await refreshCollaboration();toast('함께 쓰는 수첩에 기록했어요.');return;
   }
   const post=data.posts.find(p=>p.id===(form.dataset.post||form.dataset.parent));if(!post)return;
   const comment=post.comments.find(c=>c.id===form.dataset.comment);
-  await collaborationRequest('/posts/'+post.id+'/comments'+(comment?'/'+comment.id:''),comment?'PATCH':'POST',{text:values.get('text'),version:comment?Number(form.dataset.version):undefined});
+  await collaborationRequest('/posts/'+post.id+'/comments'+(comment?'/'+comment.id:''),comment?'PATCH':'POST',{text:values.get('text'),parentId:form.dataset.reply||null,version:comment?Number(form.dataset.version):undefined});
   close();await refreshCollaboration();detail(post.id);toast('댓글을 저장했어요.');
 }
 document.addEventListener('submit',event=>{

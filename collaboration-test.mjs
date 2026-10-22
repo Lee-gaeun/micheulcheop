@@ -56,5 +56,21 @@ try{
   await call('/books/'+id+'/members/friend',{method:'DELETE',body:{}});
   assert.equal((await call('/state',{user:'friend'})).body.posts.length,0);
   assert.equal((await call('/posts/'+postId+'/comments',{user:'friend',method:'POST',body:{text:'차단되어야 함'}})).status,404);
+  const detailed={...entry,rating:4.7,photos:[{url:'https://example.com/one.jpg',text:'첫 접시'},{url:'https://example.com/two.jpg',text:'디저트'}]};
+  const multi=await call('/books/'+id+'/posts',{method:'POST',body:detailed});assert.equal(multi.status,200);
+  let multiPost=(await call('/state')).body.posts.find(p=>p.id===multi.body.id);assert.equal(multiPost.rating,4.7);assert.equal(multiPost.photos[1].text,'디저트');assert.equal(multiPost.photo,detailed.photos[0].url);
+  assert.equal((await call('/books/'+id+'/posts',{method:'POST',body:{...entry,rating:4.75}})).status,400);
+  assert.equal((await call('/books/'+id+'/posts',{method:'POST',body:{...entry,photos:Array(11).fill(detailed.photos[0])}})).status,400);
+  const rootComment=await call('/posts/'+multi.body.id+'/comments',{method:'POST',body:{text:'질문'}});
+  const reply=await call('/posts/'+multi.body.id+'/comments',{method:'POST',body:{text:'답글',parentId:rootComment.body.id}});assert.equal(reply.status,200);
+  assert.equal((await call('/posts/'+multi.body.id+'/comments',{method:'POST',body:{text:'잘못된 답글',parentId:reply.body.id}})).status,400);
+  assert.equal((await call('/posts/'+multi.body.id+'/comments/'+rootComment.body.id,{method:'DELETE',body:{version:1}})).status,200);
+  assert.equal((await call('/state')).body.posts.find(p=>p.id===multi.body.id).comments.length,0);
+  const latestBook=(await call('/state')).body.books[0];
+  assert.equal((await call('/books/'+id,{user:'friend',method:'DELETE',body:{version:latestBook.version}})).status,404);
+  assert.equal((await call('/books/'+id,{method:'DELETE',body:{version:0}})).status,409);
+  assert.equal((await call('/books/'+id,{method:'DELETE',body:{version:latestBook.version}})).status,200);
+  assert.equal((await call('/state')).body.posts.length,0);assert.equal((await store.read()).invites.length,0);assert.equal((await store.read()).favorites.owner.length,0);
+  console.log('PASS: multi-photo captions, decimal ratings, threaded replies and owner-only notebook deletion');
   console.log('PASS: two-user invite/join/coauthor, author permissions, isolation, conflicts, bookmarks, concurrent persistence, restart, expiry, revocation and removal');
 }finally{await rm(directory,{recursive:true,force:true});}

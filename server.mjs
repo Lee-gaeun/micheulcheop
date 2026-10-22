@@ -13,11 +13,12 @@ if(production&&!origin.startsWith('https://'))throw Error('Production requires a
 if(production&&(!process.env.SUPABASE_URL||!process.env.SUPABASE_SECRET_KEY))throw Error('Configure Supabase before deployment: ephemeral file storage is disabled in production');
 if(Boolean(process.env.SUPABASE_URL)!==Boolean(process.env.SUPABASE_SECRET_KEY))throw Error('Configure both SUPABASE_URL and SUPABASE_SECRET_KEY');
 if(production&&(!process.env.KAKAO_REST_API_KEY||!process.env.KAKAO_CLIENT_SECRET))throw Error('Configure Kakao Login before deployment');
-const auth=createKakaoAuth({origin,restKey:process.env.KAKAO_REST_API_KEY,clientSecret:process.env.KAKAO_CLIENT_SECRET});
+
 const cloud=Boolean(process.env.SUPABASE_URL&&process.env.SUPABASE_SECRET_KEY);
 const collaborationStore=cloud?await new SupabaseCollaborationStore({url:process.env.SUPABASE_URL,key:process.env.SUPABASE_SECRET_KEY,bucket:process.env.SUPABASE_MEDIA_BUCKET||'micheulcheop-media'}).load():await new CollaborationStore(path.join(root,'.data','collaboration.json')).load();
+const auth=createKakaoAuth({origin,restKey:process.env.KAKAO_REST_API_KEY,clientSecret:process.env.KAKAO_CLIENT_SECRET,sessionStore:collaborationStore});
 const collaboration=createCollaborationApi({store:collaborationStore,getUser:auth.getUser,origin,...(cloud?{presentSnapshot:value=>collaborationStore.presentSnapshot(value),restorePhoto:(value,previous)=>collaborationStore.restorePhoto(value,previous)}:{})});
-const publicFiles=new Set(['index.html','app.js','style.css','mobile.css','config.js','composer.js','kakao-map.js','profile.js','collaboration.js','logo.png','icon.svg','manifest.webmanifest']);
+const publicFiles=new Set(['index.html','app.js','style.css','mobile.css','config.js','composer.js','kakao-map.js','profile.js','collaboration.js','journal.js','logo.png','icon.svg','manifest.webmanifest']);
 const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 http.createServer(async (req,res) => {
   try {

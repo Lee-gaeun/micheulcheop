@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node server.mjs",
-    "check": "node --check app.js && node --check server.mjs && node --check kakao-map.js && node --check config.js && node --check composer.js && node --check profile.js && node --check auth.mjs && node --check collaboration.js && node --check collaboration-store.mjs && node --check supabase-store.mjs && node --check scripts/import-to-supabase.mjs",
+    "check": "node --check journal.js && node --check app.js && node --check server.mjs && node --check kakao-map.js && node --check config.js && node --check composer.js && node --check profile.js && node --check auth.mjs && node --check collaboration.js && node --check collaboration-store.mjs && node --check supabase-store.mjs && node --check scripts/import-to-supabase.mjs",
     "test": "node smoke-test.cjs && node search-test.cjs && node location-test.cjs && node auth-test.mjs && node collaboration-test.mjs && node supabase-store-test.mjs"
   },
   "engines": {

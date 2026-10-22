@@ -1,0 +1,21 @@
+let photoDraft=[];
+function recordPhotos(post){return post?.photos|| (post?.photo?[{url:post.photo,text:''}]:[]);}
+function renderPhotoDraft(){const target=document.querySelector('#photo-drafts');if(!target)return;target.innerHTML=photoDraft.map((item,i)=>`<div class="photo-draft"><img src="${esc(item.url)}" alt="선택한 사진 ${i+1}"><div><label class="field">사진 ${i+1} 이야기<textarea data-photo-caption="${i}" maxlength="2000" rows="3" placeholder="이 사진에 담긴 이야기를 남겨보세요">${esc(item.text)}</textarea></label><div class="photo-draft-actions"><button type="button" data-photo-up="${i}" ${i===0?'disabled':''}>앞으로</button><button type="button" data-remove-photo="${i}">사진 삭제</button></div></div></div>`).join('');const preview=document.querySelector('#photo-preview');if(preview){preview.hidden=true;preview.removeAttribute('src');}}
+function orderedComments(post){return post.comments.filter(c=>!c.parentId).flatMap(c=>[c,...post.comments.filter(r=>r.parentId===c.id)]);}
+function ensureNotebook(){if(!data.books.length)data.books.push({id:uid(),name:'나만의 미식 수첩',emoji:'☕',color:'#e4e2ed',shared:false,description:''});if(!data.books.some(b=>b.id===selected))selected=data.books[0].id;if(data.defaultBook&&!data.books.some(b=>b.id===data.defaultBook))delete data.defaultBook;}
+function defaultNotebookKey(){return 'micheulcheop-default-'+(authInfo.user?.id||'local');}
+function restoreDefaultNotebook(){const id=localStorage.getItem(defaultNotebookKey())||data.defaultBook;if(data.books.some(b=>b.id===id)){data.defaultBook=id;selected=id;}}
+document.addEventListener('input',event=>{const index=event.target.dataset?.photoCaption;if(index!==undefined&&photoDraft[Number(index)]){photoDraft[Number(index)].text=event.target.value;updatePostPreview();}},true);
+document.addEventListener('click',event=>{
+  const button=event.target.closest('button');if(!button)return;
+  if(button.dataset.removePhoto!==undefined||button.dataset.photoUp!==undefined){event.preventDefault();event.stopImmediatePropagation();if(photoBusy){toast('사진을 불러온 후 다시 시도해 주세요.');return;}if(button.dataset.removePhoto!==undefined)photoDraft.splice(Number(button.dataset.removePhoto),1);else{const i=Number(button.dataset.photoUp);if(i>0)[photoDraft[i-1],photoDraft[i]]=[photoDraft[i],photoDraft[i-1]];}renderPhotoDraft();updatePostPreview();return;}
+  if(button.dataset.reply){event.preventDefault();event.stopImmediatePropagation();const post=data.posts.find(p=>p.id===button.dataset.parent),comment=post?.comments.find(c=>c.id===button.dataset.reply);if(!comment)return;openDialog('답글 남기기',`<p class="hint">${esc(comment.author)} 님에게 답글</p><form id="comment-form" data-post="${post.id}" data-reply="${comment.id}"><label class="field">답글<textarea name="text" maxlength="300" required rows="3"></textarea></label><button class="primary">답글 등록</button></form>`);return;}
+  if(!['default-book','delete-book','confirm-delete-book'].includes(button.dataset.action))return;
+  event.preventDefault();event.stopImmediatePropagation();const book=current();if(!book)return;
+  if(button.dataset.action==='default-book'){try{localStorage.setItem(defaultNotebookKey(),book.id);data.defaultBook=book.id;save();render();toast('다시 들어오면 이 수첩을 먼저 열어요.');}catch{toast('기본 수첩 설정을 저장하지 못했어요.');}return;}
+  if(book.remote&&book.role!=='owner'){toast('수첩 관리자만 삭제할 수 있어요.');return;}
+  if(button.dataset.action==='delete-book'){openDialog('수첩을 삭제할까요?',`<p class="hint">‘${esc(book.name)}’의 기록과 댓글도 함께 삭제돼요.${book.remote?' 모든 멤버에게서 사라져요.':''} 삭제 후 되돌릴 수 없어요.</p><button class="primary danger" data-action="confirm-delete-book" data-notebook="${book.id}" data-version="${book.version||''}">수첩과 기록 삭제</button>`);return;}
+  if(button.dataset.notebook!==book.id)return;
+  const removeLocal=()=>{const previous=structuredClone(data);data.books=data.books.filter(b=>b.id!==book.id);data.posts=data.posts.filter(p=>p.book!==book.id);ensureNotebook();if(!save()){data=previous;return;}close();render();toast('수첩을 삭제했어요.');};
+  if(book.remote)collaborationAction(async()=>{await collaborationRequest('/books/'+book.id,'DELETE',{version:Number(button.dataset.version)});close();await refreshCollaboration();ensureNotebook();save();render();toast('수첩을 삭제했어요.');});else removeLocal();
+},true);

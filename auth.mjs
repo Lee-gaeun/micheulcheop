@@ -1,6 +1,8 @@
-import {randomBytes,timingSafeEqual} from 'node:crypto';
-export function createKakaoAuth({origin,restKey,clientSecret,fetcher=fetch,now=Date.now}){
+import {randomBytes,timingSafeEqual,createHash} from 'node:crypto';
+export function createKakaoAuth({origin,restKey,clientSecret,fetcher=fetch,now=Date.now,sessionStore}){
   const pending=new Map(),sessions=new Map();
+  const sessionKey=id=>createHash('sha256').update(id||'').digest('hex');
+  const findSession=async id=>{if(!id)return null;if(!sessionStore)return sessions.get(id);const db=await sessionStore.read();return db.authSessions?.[sessionKey(id)];};
   const secure=new URL(origin).protocol==='https:'?'; Secure':'';
   const redirectUri=origin+'/auth/kakao/callback';
   const cookies=req=>Object.fromEntries((req.headers.cookie||'').split(';').map(v=>v.trim().split('=')).filter(v=>v.length===2));
@@ -13,14 +15,14 @@ export function createKakaoAuth({origin,restKey,clientSecret,fetcher=fetch,now=D
     if(!['/api/auth/status','/api/auth/logout','/auth/kakao','/auth/kakao/callback'].includes(route))return false;
     for(const [key,value] of pending)if(value.expires<=now())pending.delete(key);
     for(const [key,value] of sessions)if(value.expires<=now())sessions.delete(key);
-    const jar=cookies(req),session=sessions.get(jar.mc_session);
+    const jar=cookies(req),session=await findSession(jar.mc_session);
     if(route==='/api/auth/status'){
       if(req.method!=='GET'){json(res,405,{error:'method'});return true;}
-      json(res,200,{configured,user:session?.user||null});return true;
+      json(res,200,{configured,user:session?.expires>now()?session.user:null});return true;
     }
     if(route==='/api/auth/logout'){
       if(req.method!=='POST'||req.headers.origin!==origin){json(res,403,{error:'origin'});return true;}
-      if(session){sessions.delete(jar.mc_session);try{await fetcher('https://kapi.kakao.com/v1/user/logout',{method:'POST',headers:{Authorization:`Bearer ${session.token}`},signal:AbortSignal.timeout(5000)});}catch{}}
+      if(session){if(sessionStore)await sessionStore.update(db=>{delete (db.authSessions||{})[sessionKey(jar.mc_session)];});const token=sessions.get(jar.mc_session)?.token;sessions.delete(jar.mc_session);try{if(token)await fetcher('https://kapi.kakao.com/v1/user/logout',{method:'POST',headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(5000)});}catch{}}
       res.setHeader('Set-Cookie',cookie('mc_session','',0));json(res,200,{ok:true});return true;
     }
     if(req.method!=='GET'){json(res,405,{error:'method'});return true;}
@@ -45,12 +47,14 @@ export function createKakaoAuth({origin,restKey,clientSecret,fetcher=fetch,now=D
       if(!userResponse.ok)throw Error('user');const account=await userResponse.json();if(!account.id)throw Error('user');
       const profile=account.kakao_account?.profile||{},rawPhoto=profile.profile_image_url||'';
       const photo=rawPhoto.startsWith('https://')?rawPhoto:'';
-      const id=randomBytes(32).toString('hex'),lifetime=Math.max(60,Math.min(86400,Number(tokens.expires_in)||21600));
-      sessions.set(id,{expires:now()+lifetime*1000,token:tokens.access_token,user:{id:String(account.id),nickname:String(profile.nickname||'카카오 사용자').slice(0,20),photo}});
+      const id=randomBytes(32).toString('hex'),lifetime=30*86400;
+      const session={expires:now()+lifetime*1000,user:{id:String(account.id),nickname:String(profile.nickname||'카카오 사용자').slice(0,20),photo}};
+      if(sessionStore)await sessionStore.update(db=>{db.authSessions=Object.fromEntries(Object.entries(db.authSessions||{}).filter(([,s])=>s.expires>now()));db.authSessions[sessionKey(id)]=session;});
+      sessions.set(id,{...session,token:tokens.access_token});
       redirect(res,'/?auth=success',{'Set-Cookie':[clearState,cookie('mc_session',id,lifetime)]});
     }catch{redirect(res,'/?auth_error=failed',{'Set-Cookie':clearState});}
     return true;
   };
-  handler.getUser=req=>{const session=sessions.get(cookies(req).mc_session);return session&&session.expires>now()?session.user:null;};
+  handler.getUser=sessionStore?async req=>{const session=await findSession(cookies(req).mc_session);return session&&session.expires>now()?session.user:null;}:req=>{const session=sessions.get(cookies(req).mc_session);return session&&session.expires>now()?session.user:null;};
   return handler;
 }

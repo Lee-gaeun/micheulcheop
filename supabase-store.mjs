@@ -50,7 +50,7 @@ export class SupabaseCollaborationStore{
   }
   async externalizePhotos(state){
     for(const [id,user] of Object.entries(state.users))user.photo=await this.uploadPhoto(user.photo,'users/'+encodeURIComponent(id));
-    for(const post of state.posts)post.photo=await this.uploadPhoto(post.photo,'books/'+encodeURIComponent(post.book));
+    for(const post of state.posts){const scope='books/'+encodeURIComponent(post.book);if(post.photos){for(const item of post.photos)item.url=await this.uploadPhoto(item.url,scope);post.photo=post.photos[0]?.url||'';}else post.photo=await this.uploadPhoto(post.photo,scope);}
   }
   restorePhoto(input,previous){
     if(!previous?.startsWith('sb:'))return input;
@@ -71,7 +71,7 @@ export class SupabaseCollaborationStore{
   async presentSnapshot(snapshot){
     const result=structuredClone(snapshot),tasks=[];
     for(const book of result.books)for(const member of book.members)tasks.push(this.signedPhoto(member.photo).then(photo=>member.photo=photo));
-    for(const post of result.posts){tasks.push(this.signedPhoto(post.photo).then(photo=>post.photo=photo));tasks.push(this.signedPhoto(post.authorPhoto).then(photo=>post.authorPhoto=photo));for(const comment of post.comments)tasks.push(this.signedPhoto(comment.authorPhoto).then(photo=>comment.authorPhoto=photo));}
+    for(const post of result.posts){for(const item of post.photos||[])tasks.push(this.signedPhoto(item.url).then(url=>item.url=url));tasks.push(this.signedPhoto(post.photo).then(photo=>post.photo=photo));tasks.push(this.signedPhoto(post.authorPhoto).then(photo=>post.authorPhoto=photo));for(const comment of post.comments)tasks.push(this.signedPhoto(comment.authorPhoto).then(photo=>comment.authorPhoto=photo));}
     await Promise.all(tasks);return result;
   }
   async importInitialState(state){

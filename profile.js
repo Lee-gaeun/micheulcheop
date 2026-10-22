@@ -1,3 +1,4 @@
+let defaultRestoredFor=null;
 let authInfo={configured:false,user:null},profilePhotoDraft='',profilePhotoBusy=false,profilePhotoRequest=0;
 function avatarMarkup(photo=data.profilePhoto,alt='내 프로필 사진'){return `<span class="avatar-placeholder" aria-hidden="true">${icon('user')}</span>${photo?`<img class="avatar-image" src="${esc(photo)}" alt="${esc(alt)}" referrerpolicy="no-referrer">`:''}`;}
 document.addEventListener('error',event=>{if(event.target?.matches?.('img.avatar-image'))event.target.remove();},true);
@@ -31,6 +32,7 @@ async function refreshAuth(){
     if(params.get('auth')==='success'&&authInfo.user){const previous=structuredClone(data);const oldName=data.profile;data.profile=authInfo.user.nickname;for(const p of data.posts){if(p.author===oldName)p.author=data.profile;for(const c of p.comments)if(c.author===oldName)c.author=data.profile;}if(!data.profilePhoto)data.profilePhoto=authInfo.user.photo;if(!save())data=previous;render();toast('카카오계정으로 로그인했어요.');}
     const error=params.get('auth_error');if(error){const messages={setup:'카카오 로그인 서버 설정이 필요해요.',state:'로그인 요청이 만료됐어요. 다시 시도해 주세요.',cancelled:'로그인을 취소했어요.',failed:'카카오 로그인에 실패했어요. 설정을 확인해 주세요.'};toast(messages[error]||messages.failed);}
     await refreshCollaboration();
+    const account=authInfo.user?.id||'local';if(defaultRestoredFor!==account){restoreDefaultNotebook();defaultRestoredFor=account;if(!modal.firstChild)render();}
     if(params.has('auth')||params.has('auth_error')){params.delete('auth');params.delete('auth_error');history.replaceState(null,'',window.location.pathname+(params.size?'?'+params:'')+window.location.hash);}
     await openPendingInvite();
   }catch{}
